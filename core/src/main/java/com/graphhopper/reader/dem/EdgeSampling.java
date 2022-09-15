@@ -40,9 +40,11 @@ public class EdgeSampling {
         int nodes = input.size();
         double lastLat = input.getLat(0), lastLon = input.getLon(0), lastEle = input.getEle(0),
                 thisLat, thisLon, thisEle;
+        long thisOsmId;
         for (int i = 0; i < nodes; i++) {
             thisLat = input.getLat(i);
             thisLon = input.getLon(i);
+            thisOsmId = input.getOsmId(i);
             thisEle = input.getEle(i);
             if (i > 0) {
                 double segmentLength = distCalc.calcDist3D(lastLat, lastLon, lastEle, thisLat, thisLon, thisEle);
@@ -63,11 +65,11 @@ public class EdgeSampling {
                     }
                     double ele = elevation.getEle(lat, lon);
                     if (!Double.isNaN(ele)) {
-                        output.add(lat, lon, ele);
+                        output.add(lat, lon, ele, Long.MIN_VALUE);
                     }
                 }
             }
-            output.add(thisLat, thisLon, thisEle);
+            output.add(thisLat, thisLon, thisEle, thisOsmId);
             lastLat = thisLat;
             lastLon = thisLon;
             lastEle = thisEle;

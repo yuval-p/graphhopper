@@ -33,10 +33,13 @@ class GHNodeAccess implements NodeAccess {
     }
 
     @Override
-    public final void setNode(int nodeId, double lat, double lon, double ele) {
+    public final void setNode(int nodeId, double lat, double lon, double ele, long osmId) {
         store.ensureNodeCapacity(nodeId);
         store.setLat(store.toNodePointer(nodeId), lat);
         store.setLon(store.toNodePointer(nodeId), lon);
+
+        if(store.withOSMId())
+            store.setOsmId(store.toNodePointer(nodeId), osmId);
 
         if (store.withElevation()) {
             // meter precision is sufficient for now
@@ -65,6 +68,11 @@ class GHNodeAccess implements NodeAccess {
     }
 
     @Override
+    public long getOsmId(int nodeId)  {
+        return store.getOsmId(store.toNodePointer(nodeId));
+    }
+
+    @Override
     public final void setTurnCostIndex(int index, int turnCostIndex) {
         if (store.withTurnCosts()) {
             // todo: remove ensure?
@@ -89,7 +97,17 @@ class GHNodeAccess implements NodeAccess {
     }
 
     @Override
+    public boolean isStoringOSMIds() {
+        return store.withOSMId();
+    }
+
+    @Override
     public int getDimension() {
-        return store.withElevation() ? 3 : 2;
+        int baseDimension = 2;
+        if(store.withElevation())
+            baseDimension++;
+        if(store.withOSMId())
+            baseDimension +=2;
+        return baseDimension;
     }
 }

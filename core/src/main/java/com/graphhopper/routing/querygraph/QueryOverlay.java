@@ -41,8 +41,8 @@ class QueryOverlay {
     // stores the changes that need to be done to the real nodes
     private final IntObjectMap<EdgeChanges> edgeChangesAtRealNodes;
 
-    QueryOverlay(int numVirtualNodes, boolean is3D) {
-        this.virtualNodes = new PointList(numVirtualNodes, is3D);
+    QueryOverlay(int numVirtualNodes, boolean is3D, boolean storeOSMId) {
+        this.virtualNodes = new PointList(numVirtualNodes, is3D, storeOSMId);
         this.virtualEdges = new ArrayList<>(numVirtualNodes * 2);
         this.closestEdges = new IntArrayList(numVirtualNodes);
         edgeChangesAtRealNodes = new GHIntObjectHashMap<>(numVirtualNodes * 3);

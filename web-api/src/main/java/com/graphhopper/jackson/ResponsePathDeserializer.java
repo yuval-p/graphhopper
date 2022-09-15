@@ -89,7 +89,7 @@ public class ResponsePathDeserializer extends JsonDeserializer<ResponsePath> {
                     JsonNode iv = jsonObj.get("interval");
                     int from = iv.get(0).asInt();
                     int to = iv.get(1).asInt();
-                    PointList instPL = new PointList(to - from, hasElevation);
+                    PointList instPL = new PointList(to - from, hasElevation, false);
                     for (int j = from; j <= to; j++) {
                         instPL.add(pointList, j);
                     }
@@ -189,7 +189,7 @@ public class ResponsePathDeserializer extends JsonDeserializer<ResponsePath> {
     }
 
     public static PointList decodePolyline(String encoded, int initCap, boolean is3D) {
-        PointList poly = new PointList(initCap, is3D);
+        PointList poly = new PointList(initCap, is3D, false);
         int index = 0;
         int len = encoded.length();
         int lat = 0, lng = 0, ele = 0;
@@ -226,9 +226,9 @@ public class ResponsePathDeserializer extends JsonDeserializer<ResponsePath> {
                 } while (b >= 0x20);
                 int deltaElevation = ((result & 1) != 0 ? ~(result >> 1) : (result >> 1));
                 ele += deltaElevation;
-                poly.add((double) lat / 1e5, (double) lng / 1e5, (double) ele / 100);
+                poly.add((double) lat / 1e5, (double) lng / 1e5, (double) ele / 100, Long.MIN_VALUE);
             } else
-                poly.add((double) lat / 1e5, (double) lng / 1e5);
+                poly.add((double) lat / 1e5, (double) lng / 1e5, Double.NaN, Long.MIN_VALUE);
         }
         return poly;
     }

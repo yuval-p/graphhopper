@@ -58,12 +58,12 @@ public class BaseGraph implements Graph, Closeable {
     private boolean initialized = false;
     private long maxGeoRef;
 
-    public BaseGraph(Directory dir, int intsForFlags, boolean withElevation, boolean withTurnCosts, int segmentSize) {
+    public BaseGraph(Directory dir, int intsForFlags, boolean withElevation,boolean withOSMId, boolean withTurnCosts, int segmentSize) {
         this.dir = dir;
         this.bitUtil = BitUtil.LITTLE;
         this.wayGeometry = dir.create("geometry", segmentSize);
         this.edgeKVStorage = new EdgeKVStorage(dir);
-        this.store = new BaseGraphNodesAndEdges(dir, intsForFlags, withElevation, withTurnCosts, segmentSize);
+        this.store = new BaseGraphNodesAndEdges(dir, intsForFlags, withElevation, withOSMId, withTurnCosts, segmentSize);
         this.nodeAccess = new GHNodeAccess(store);
         this.segmentSize = segmentSize;
         turnCostStorage = withTurnCosts ? new TurnCostStorage(this, dir.create("turn_costs", segmentSize)) : null;
@@ -391,7 +391,10 @@ public class BaseGraph implements Graph, Closeable {
             tmpOffset += 4;
             bitUtil.fromInt(bytes, Helper.degreeToInt(pillarNodes.getLon(i)), tmpOffset);
             tmpOffset += 4;
-
+            if(nodeAccess.isStoringOSMIds()) {
+                bitUtil.fromLong(bytes, pillarNodes.getOsmId(i), tmpOffset);
+                tmpOffset += 8;
+            }
             if (is3D) {
                 bitUtil.fromInt(bytes, Helper.eleToInt(pillarNodes.getEle(i)), tmpOffset);
                 tmpOffset += 4;
@@ -421,7 +424,7 @@ public class BaseGraph implements Graph, Closeable {
         } else if (mode == FetchMode.PILLAR_ONLY)
             return PointList.EMPTY;
 
-        PointList pillarNodes = new PointList(getPointListLength(count, mode), nodeAccess.is3D());
+        PointList pillarNodes = new PointList(getPointListLength(count, mode), nodeAccess.is3D(), nodeAccess.isStoringOSMIds());
         if (reverse) {
             if (mode == FetchMode.ALL || mode == FetchMode.PILLAR_AND_ADJ)
                 pillarNodes.add(nodeAccess, adjNode);
@@ -430,15 +433,20 @@ public class BaseGraph implements Graph, Closeable {
 
         int index = 0;
         for (int i = 0; i < count; i++) {
+            long osmId = Long.MIN_VALUE;
             double lat = Helper.intToDegree(bitUtil.toInt(bytes, index));
             index += 4;
             double lon = Helper.intToDegree(bitUtil.toInt(bytes, index));
             index += 4;
+            if(nodeAccess.isStoringOSMIds()){
+                osmId = bitUtil.toLong(bytes, index);
+                index += 8;
+            }
             if (nodeAccess.is3D()) {
-                pillarNodes.add(lat, lon, Helper.intToEle(bitUtil.toInt(bytes, index)));
+                pillarNodes.add(lat, lon, Helper.intToEle(bitUtil.toInt(bytes, index)), osmId);
                 index += 4;
             } else {
-                pillarNodes.add(lat, lon);
+                pillarNodes.add(lat, lon, Double.NaN, osmId);
             }
         }
 
@@ -497,6 +505,7 @@ public class BaseGraph implements Graph, Closeable {
         private final int intsForFlags;
         private Directory directory = new RAMDirectory();
         private boolean withElevation = false;
+        private boolean withOSMId = false;
         private boolean withTurnCosts = false;
         private long bytes = 100;
         private int segmentSize = -1;
@@ -522,6 +531,11 @@ public class BaseGraph implements Graph, Closeable {
             return this;
         }
 
+        public Builder setStoreOSMId(boolean withOSMId) {
+            this.withOSMId = withOSMId;
+            return this;
+        }
+
         // todo: maybe rename later, but for now this makes it easier to replace GraphBuilder
         public Builder withTurnCosts(boolean withTurnCosts) {
             this.withTurnCosts = withTurnCosts;
@@ -539,7 +553,7 @@ public class BaseGraph implements Graph, Closeable {
         }
 
         public BaseGraph build() {
-            return new BaseGraph(directory, intsForFlags, withElevation, withTurnCosts, segmentSize);
+            return new BaseGraph(directory, intsForFlags, withElevation,withOSMId, withTurnCosts, segmentSize);
         }
 
         public BaseGraph create() {

@@ -22,6 +22,7 @@ import com.graphhopper.storage.BaseGraph;
 import com.graphhopper.util.*;
 import com.graphhopper.util.shapes.GHPoint;
 import com.graphhopper.util.shapes.GHPoint3D;
+import com.graphhopper.util.shapes.OSMGHPoint3D;
 
 import java.util.List;
 
@@ -44,7 +45,7 @@ public class Snap {
     private int wayIndex = -1;
     private int closestNode = INVALID_NODE;
     private EdgeIteratorState closestEdge;
-    private GHPoint3D snappedPoint;
+    private OSMGHPoint3D snappedPoint;
     private Position snappedPosition;
 
     public Snap(double queryLat, double queryLon) {
@@ -136,9 +137,10 @@ public class Snap {
         PointList fullPL = getClosestEdge().fetchWayGeometry(FetchMode.ALL);
         double tmpLat = fullPL.getLat(wayIndex);
         double tmpLon = fullPL.getLon(wayIndex);
+        long tmpOsmId = fullPL.getOsmId(wayIndex);
         double tmpEle = fullPL.getEle(wayIndex);
         if (snappedPosition != Position.EDGE) {
-            snappedPoint = new GHPoint3D(tmpLat, tmpLon, tmpEle);
+            snappedPoint = new OSMGHPoint3D(tmpLat, tmpLon, tmpEle, tmpOsmId);
             return;
         }
 
@@ -147,10 +149,10 @@ public class Snap {
         if (distCalc.validEdgeDistance(queryLat, queryLon, tmpLat, tmpLon, adjLat, adjLon)) {
             GHPoint tmpPoint = distCalc.calcCrossingPointToEdge(queryLat, queryLon, tmpLat, tmpLon, adjLat, adjLon);
             double adjEle = fullPL.getEle(wayIndex + 1);
-            snappedPoint = new GHPoint3D(tmpPoint.lat, tmpPoint.lon, (tmpEle + adjEle) / 2);
+            snappedPoint = new OSMGHPoint3D(tmpPoint.lat, tmpPoint.lon, (tmpEle + adjEle) / 2, tmpOsmId);
         } else
             // outside of edge boundaries
-            snappedPoint = new GHPoint3D(tmpLat, tmpLon, tmpEle);
+            snappedPoint = new OSMGHPoint3D(tmpLat, tmpLon, tmpEle, tmpOsmId);
     }
 
     @Override

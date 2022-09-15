@@ -17,6 +17,8 @@
  */
 package com.graphhopper.storage;
 
+import com.graphhopper.util.Helper;
+
 import java.io.File;
 import java.io.IOException;
 import java.io.RandomAccessFile;
@@ -157,22 +159,26 @@ public class RAMDataAccess extends AbstractDataAccess {
 
     @Override
     public final void setInt(long bytePos, int value) {
-        assert segmentSizePower > 0 : "call create or loadExisting before usage!";
-        int bufferIndex = (int) (bytePos >>> segmentSizePower);
-        int index = (int) (bytePos & indexDivisor);
-        if (index + 4 > segmentSizeInBytes)
-            throw new IllegalStateException("Padding required. Currently an int cannot be distributed over two segments. " + bytePos);
-        bitUtil.fromInt(segments[bufferIndex], value, index);
+        setBytes(bytePos, bitUtil.fromInt(value), 4);
+//        assert segmentSizePower > 0 : "call create or loadExisting before usage!";
+//        int bufferIndex = (int) (bytePos >>> segmentSizePower);
+//        int index = (int) (bytePos & indexDivisor);
+//        if (index + 4 > segmentSizeInBytes)
+//            throw new IllegalStateException("Padding required. Currently an int cannot be distributed over two segments. " + bytePos);
+//        bitUtil.fromInt(segments[bufferIndex], value, index);
     }
 
     @Override
     public final int getInt(long bytePos) {
-        assert segments.length > 0 : "call create or loadExisting before usage!";
-        int bufferIndex = (int) (bytePos >>> segmentSizePower);
-        int index = (int) (bytePos & indexDivisor);
-        if (index + 4 > segmentSizeInBytes)
-            throw new IllegalStateException("Padding required. Currently an int cannot be distributed over two segments. " + bytePos);
-        return bitUtil.toInt(segments[bufferIndex], index);
+        byte[] value = new byte[4];
+        getBytes(bytePos, value, 4);
+        return bitUtil.toInt(value);
+//        assert segments.length > 0 : "call create or loadExisting before usage!";
+//        int bufferIndex = (int) (bytePos >>> segmentSizePower);
+//        int index = (int) (bytePos & indexDivisor);
+//        if (index + 4 > segmentSizeInBytes)
+//            throw new IllegalStateException("Padding required. Currently an int cannot be distributed over two segments. " + bytePos);
+//        return bitUtil.toInt(segments[bufferIndex], index);
     }
 
     @Override

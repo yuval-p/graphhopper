@@ -209,7 +209,7 @@ public class GHUtility {
         for (int i = 0; i < numNodes; ++i) {
             double lat = 49.4 + (random.nextDouble() * 0.01);
             double lon = 9.7 + (random.nextDouble() * 0.01);
-            graph.getNodeAccess().setNode(i, lat, lon);
+            graph.getNodeAccess().setNode(i, lat, lon, Double.NaN, Long.MIN_VALUE);
         }
         double minDist = Double.MAX_VALUE;
         double maxDist = Double.MIN_VALUE;
@@ -407,9 +407,9 @@ public class GHUtility {
         for (int old = 0; old < nodes; old++) {
             int newIndex = oldToNewNodeList.get(old);
             if (sna.is3D())
-                sna.setNode(newIndex, na.getLat(old), na.getLon(old), na.getEle(old));
+                sna.setNode(newIndex, na.getLat(old), na.getLon(old), na.getEle(old), na.getOsmId(old));
             else
-                sna.setNode(newIndex, na.getLat(old), na.getLon(old));
+                sna.setNode(newIndex, na.getLat(old), na.getLon(old), Double.NaN, na.getOsmId(old));
         }
         return toSortedGraph;
     }
@@ -631,7 +631,7 @@ public class GHUtility {
 
     public static void updateDistancesFor(Graph g, int node, double lat, double lon) {
         NodeAccess na = g.getNodeAccess();
-        na.setNode(node, lat, lon);
+        na.setNode(node, lat, lon, Double.NaN, Long.MIN_VALUE);
         EdgeIterator iter = g.createEdgeExplorer().setBaseNode(node);
         while (iter.next()) {
             iter.setDistance(DIST_EARTH.calcDistance(iter.fetchWayGeometry(FetchMode.ALL)));

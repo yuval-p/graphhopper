@@ -26,6 +26,8 @@ public interface PointAccess {
      */
     boolean is3D();
 
+    boolean isStoringOSMIds();
+
     /**
      * @return 3 if elevation enabled. 2 otherwise
      */
@@ -37,17 +39,24 @@ public interface PointAccess {
      */
     void ensureNode(int nodeId);
 
+//    default void setNode(int nodeId, double lat, double lon, long osmId) {
+//        setNode(nodeId, lat, lon, Double.NaN, osmId);
+//    }
+
     default void setNode(int nodeId, double lat, double lon) {
-        setNode(nodeId, lat, lon, Double.NaN);
+        setNode(nodeId, lat, lon, Double.NaN, Long.MIN_VALUE);
     }
 
+    default void setNode(int nodeId, double lat, double lon, double elv) {
+        setNode(nodeId, lat, lon, elv, Long.MIN_VALUE);
+    }
     /**
      * This method ensures that the node with the specified index exists and prepares access to it.
      * The index goes from 0 (inclusive) to graph.getNodes() (exclusive)
      * <p>
      * This methods sets the latitude, longitude and elevation to the specified value.
      */
-    void setNode(int nodeId, double lat, double lon, double ele);
+    void setNode(int nodeId, double lat, double lon, double ele, long osmId);
 
     /**
      * @return the latitude at the specified node index
@@ -63,4 +72,6 @@ public interface PointAccess {
      * Returns the elevation of the specified nodeId.
      */
     double getEle(int nodeId);
+
+    long getOsmId(int nodeId);
 }

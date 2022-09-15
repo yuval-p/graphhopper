@@ -19,6 +19,7 @@ package com.graphhopper.util;
 
 import com.graphhopper.util.shapes.GHPoint;
 import com.graphhopper.util.shapes.GHPoint3D;
+import com.graphhopper.util.shapes.OSMGHPoint3D;
 import org.locationtech.jts.geom.Coordinate;
 import org.locationtech.jts.geom.GeometryFactory;
 import org.locationtech.jts.geom.LineString;
@@ -37,17 +38,17 @@ import static com.graphhopper.util.Helper.round6;
  *
  * @author Peter Karich
  */
-public class PointList implements Iterable<GHPoint3D>, PointAccess {
+public class PointList implements Iterable<OSMGHPoint3D>, PointAccess {
     // should be thread-safe according to https://github.com/locationtech/jts/issues/512
     private static final GeometryFactory factory = new GeometryFactory();
-    public static final PointList EMPTY = new PointList(0, true) {
+    public static final PointList EMPTY = new PointList(0, true, true) {
         @Override
-        public void set(int index, double lat, double lon, double ele) {
+        public void set(int index, double lat, double lon, double ele, long osmId) {
             throw new RuntimeException("cannot change EMPTY PointList");
         }
 
         @Override
-        public void add(double lat, double lon, double ele) {
+        public void add(double lat, double lon, double ele, long osmId) {
             throw new RuntimeException("cannot change EMPTY PointList");
         }
 
@@ -117,7 +118,7 @@ public class PointList implements Iterable<GHPoint3D>, PointAccess {
         }
 
         @Override
-        public GHPoint3D get(int index) {
+        public OSMGHPoint3D get(int index) {
             throw new UnsupportedOperationException("cannot access EMPTY PointList");
         }
 
@@ -130,19 +131,28 @@ public class PointList implements Iterable<GHPoint3D>, PointAccess {
     final static String ERR_MSG = "Tried to access PointList with too big index!";
     protected int size = 0;
     protected boolean is3D;
+    protected boolean storeOSMId;
     private double[] latitudes;
     private double[] longitudes;
     private double[] elevations;
+    private long[] osmIds;
     private boolean isImmutable = false;
     private LineString cachedLineString;
 
     public PointList() {
-        this(10, false);
+        this(10, false, false);
     }
 
     public PointList(int cap, boolean is3D) {
+        this(cap, is3D, false);
+    }
+
+    public PointList(int cap, boolean is3D, boolean storeOSMId) {
         latitudes = new double[cap];
         longitudes = new double[cap];
+        this.storeOSMId = storeOSMId;
+        if(storeOSMId)
+            osmIds = new long[cap];
         this.is3D = is3D;
         if (is3D)
             elevations = new double[cap];
@@ -154,10 +164,19 @@ public class PointList implements Iterable<GHPoint3D>, PointAccess {
     }
 
     @Override
+    public boolean isStoringOSMIds() {
+        return storeOSMId;
+    }
+
+    @Override
     public int getDimension() {
+        int baseDimension = 2;
         if (is3D)
-            return 3;
-        return 2;
+            baseDimension++;
+        if(storeOSMId)
+            baseDimension +=2; //TODO change this to reduce the way geometry size
+
+        return baseDimension;
     }
 
     @Override
@@ -166,21 +185,27 @@ public class PointList implements Iterable<GHPoint3D>, PointAccess {
     }
 
     @Override
-    public void setNode(int nodeId, double lat, double lon, double ele) {
-        set(nodeId, lat, lon, ele);
+    public void setNode(int nodeId, double lat, double lon, double ele, long osmId) {
+        set(nodeId, lat, lon, ele, osmId);
     }
 
-    public void set(int index, double lat, double lon, double ele) {
+    public void set(int index, double lat, double lon, double ele, long osmId) {
         ensureMutability();
         if (index >= size)
             throw new ArrayIndexOutOfBoundsException("index has to be smaller than size " + size);
 
         latitudes[index] = lat;
         longitudes[index] = lon;
+        if(storeOSMId)
+            osmIds[index] = osmId;
         if (is3D)
             elevations[index] = ele;
         else if (!Double.isNaN(ele))
             throw new IllegalStateException("This is a 2D list we cannot store elevation: " + ele);
+    }
+
+    public void set(int index, double lat, double lon, double ele) {
+        set(index, lat, lon, ele, Long.MIN_VALUE);
     }
 
     private void incCap(int newSize) {
@@ -192,22 +217,26 @@ public class PointList implements Iterable<GHPoint3D>, PointAccess {
             cap = 15;
         latitudes = Arrays.copyOf(latitudes, cap);
         longitudes = Arrays.copyOf(longitudes, cap);
+        if(storeOSMId)
+            osmIds = Arrays.copyOf(osmIds, cap);
         if (is3D)
             elevations = Arrays.copyOf(elevations, cap);
     }
 
-    public void add(double lat, double lon) {
-        if (is3D)
-            throw new IllegalStateException("Cannot add point without elevation data in 3D mode");
-        add(lat, lon, Double.NaN);
-    }
+//    public void add(double lat, double lon, long osmId) {
+//        if (is3D)
+//            throw new IllegalStateException("Cannot add point without elevation data in 3D mode");
+//        add(lat, lon, Double.NaN, osmId);
+//    }
 
-    public void add(double lat, double lon, double ele) {
+    public void add(double lat, double lon, double ele, long osmId) {
         ensureMutability();
         int newSize = size + 1;
         incCap(newSize);
         latitudes[size] = lat;
         longitudes[size] = lon;
+        if(storeOSMId)
+            osmIds[size] = osmId;
         if (is3D)
             elevations[size] = ele;
         else if (!Double.isNaN(ele))
@@ -215,18 +244,28 @@ public class PointList implements Iterable<GHPoint3D>, PointAccess {
         size = newSize;
     }
 
+    public void add(double lat, double lon, double ele) {
+        add(lat, lon, ele, Long.MIN_VALUE);
+    }
+
+    public void add(double lat, double lon) {
+        add(lat, lon, Double.NaN, Long.MIN_VALUE);
+    }
+
     public void add(PointAccess nodeAccess, int index) {
-        if (is3D)
-            add(nodeAccess.getLat(index), nodeAccess.getLon(index), nodeAccess.getEle(index));
-        else
-            add(nodeAccess.getLat(index), nodeAccess.getLon(index));
+        double lat = nodeAccess.getLat(index);
+        double lon = nodeAccess.getLon(index);
+        double ele = is3D? nodeAccess.getEle(index): Double.NaN;
+        long osmId = storeOSMId?  nodeAccess.getOsmId(index): Long.MIN_VALUE;
+        add(lat, lon, ele, osmId);
     }
 
     public void add(GHPoint point) {
-        if (is3D)
-            add(point.lat, point.lon, ((GHPoint3D) point).ele);
-        else
-            add(point.lat, point.lon);
+        double lat = point.lat;
+        double lon = point.lon;
+        double ele = is3D? ((GHPoint3D) point).ele: Double.NaN;
+        long osmId = storeOSMId?  ((OSMGHPoint3D) point).osmId: Long.MIN_VALUE;
+        add(lat, lon, ele, osmId);
     }
 
     public void add(PointList points) {
@@ -237,6 +276,8 @@ public class PointList implements Iterable<GHPoint3D>, PointAccess {
             int tmp = size + i;
             latitudes[tmp] = points.getLat(i);
             longitudes[tmp] = points.getLon(i);
+            if(storeOSMId)
+                osmIds[tmp] = points.getOsmId(i);
             if (is3D)
                 elevations[tmp] = points.getEle(i);
         }
@@ -283,6 +324,15 @@ public class PointList implements Iterable<GHPoint3D>, PointAccess {
         return elevations[index];
     }
 
+    @Override
+    public long getOsmId(int index) {
+        if (index >= size)
+            throw new ArrayIndexOutOfBoundsException(ERR_MSG + " index:" + index + ", size:" + size);
+        if(!storeOSMId)
+            return Long.MIN_VALUE;
+        return osmIds[index];
+    }
+
     public void setElevation(int index, double ele) {
         if (index >= size)
             throw new ArrayIndexOutOfBoundsException(ERR_MSG + " index:" + index + ", size:" + size);
@@ -305,6 +355,12 @@ public class PointList implements Iterable<GHPoint3D>, PointAccess {
             tmp = longitudes[i];
             longitudes[i] = longitudes[swapIndex];
             longitudes[swapIndex] = tmp;
+
+            if(storeOSMId) {
+                long tmpOsmId = osmIds[i];
+                osmIds[i] = osmIds[swapIndex];
+                osmIds[swapIndex] = tmpOsmId;
+            }
 
             if (is3D) {
                 tmp = elevations[i];
@@ -338,6 +394,10 @@ public class PointList implements Iterable<GHPoint3D>, PointAccess {
             sb.append(this.getLat(i));
             sb.append(',');
             sb.append(this.getLon(i));
+            if(storeOSMId) {
+                sb.append(',');
+                sb.append(this.getOsmId(i));
+            }
             if (this.is3D()) {
                 sb.append(',');
                 sb.append(this.getEle(i));
@@ -401,6 +461,9 @@ public class PointList implements Iterable<GHPoint3D>, PointAccess {
             if (!equalsEps(this.getLon(i), other.getLon(i)))
                 return false;
 
+            if (this.isStoringOSMIds() && !equalsEps(this.getOsmId(i), other.getOsmId(i)))
+                return false;
+
             if (this.is3D() && !equalsEps(this.getEle(i), other.getEle(i)))
                 return false;
         }
@@ -422,14 +485,14 @@ public class PointList implements Iterable<GHPoint3D>, PointAccess {
      * {@link ShallowImmutablePointList}, the cloned PointList will be a regular PointList.
      */
     public PointList clone(boolean reverse) {
-        PointList clonePL = new PointList(size(), is3D());
+        PointList clonePL = new PointList(size(), is3D(), isStoringOSMIds());
         if (is3D())
             for (int i = 0; i < size(); i++) {
-                clonePL.add(this.getLat(i), this.getLon(i), this.getEle(i));
+                clonePL.add(this.getLat(i), this.getLon(i), this.getEle(i), this.getOsmId(i));
             }
         else
             for (int i = 0; i < size(); i++) {
-                clonePL.add(this.getLat(i), this.getLon(i));
+                clonePL.add(this.getLat(i), this.getLon(i), Double.NaN, this.getOsmId(i));
             }
         if (reverse)
             clonePL.reverse();
@@ -458,11 +521,13 @@ public class PointList implements Iterable<GHPoint3D>, PointAccess {
         }
 
         int len = end - from;
-        PointList copyPL = new PointList(len, is3D());
+        PointList copyPL = new PointList(len, is3D(), isStoringOSMIds());
         copyPL.size = len;
         copyPL.isImmutable = isImmutable();
         System.arraycopy(thisPL.latitudes, from, copyPL.latitudes, 0, len);
         System.arraycopy(thisPL.longitudes, from, copyPL.longitudes, 0, len);
+        if(isStoringOSMIds())
+            System.arraycopy(thisPL.osmIds, from, copyPL.osmIds, 0, len);
         if (is3D())
             System.arraycopy(thisPL.elevations, from, copyPL.elevations, 0, len);
         return copyPL;
@@ -506,8 +571,8 @@ public class PointList implements Iterable<GHPoint3D>, PointAccess {
         }
     }
 
-    public GHPoint3D get(int index) {
-        return new GHPoint3D(this.getLat(index), this.getLon(index), this.getEle(index));
+    public OSMGHPoint3D get(int index) {
+        return new OSMGHPoint3D(this.getLat(index), this.getLon(index), this.getEle(index), this.getOsmId(index));
     }
 
     int getCapacity() {
@@ -515,8 +580,8 @@ public class PointList implements Iterable<GHPoint3D>, PointAccess {
     }
 
     @Override
-    public Iterator<GHPoint3D> iterator() {
-        return new Iterator<GHPoint3D>() {
+    public Iterator<OSMGHPoint3D> iterator() {
+        return new Iterator<OSMGHPoint3D>() {
             int counter = 0;
 
             @Override
@@ -525,11 +590,11 @@ public class PointList implements Iterable<GHPoint3D>, PointAccess {
             }
 
             @Override
-            public GHPoint3D next() {
+            public OSMGHPoint3D next() {
                 if (counter >= size())
                     throw new NoSuchElementException();
 
-                GHPoint3D point = PointList.this.get(counter);
+                OSMGHPoint3D point = PointList.this.get(counter);
                 counter++;
                 return point;
             }

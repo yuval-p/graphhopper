@@ -56,7 +56,8 @@ public class NodeElevationInterpolator {
         for (int innerNodeId : innerNodeIds) {
             double lat = nodeAccess.getLat(innerNodeId);
             double lon = nodeAccess.getLon(innerNodeId);
-            nodeAccess.setNode(innerNodeId, lat, lon, ele);
+            long osmId = nodeAccess.getOsmId(innerNodeId);
+            nodeAccess.setNode(innerNodeId, lat, lon, ele, osmId);
         }
     }
 
@@ -74,9 +75,10 @@ public class NodeElevationInterpolator {
         for (int innerNodeId : innerNodeIds) {
             double lat = nodeAccess.getLat(innerNodeId);
             double lon = nodeAccess.getLon(innerNodeId);
+            long osmId = nodeAccess.getOsmId(innerNodeId);
             double ele = elevationInterpolator.calculateElevationBasedOnTwoPoints(lat, lon, lat0, lon0, ele0,
                     lat1, lon1, ele1);
-            nodeAccess.setNode(innerNodeId, lat, lon, ele);
+            nodeAccess.setNode(innerNodeId, lat, lon, ele, osmId);
         }
     }
 
@@ -98,9 +100,10 @@ public class NodeElevationInterpolator {
         for (int innerNodeId : innerNodeIds) {
             double lat = nodeAccess.getLat(innerNodeId);
             double lon = nodeAccess.getLon(innerNodeId);
+            long osmId = nodeAccess.getOsmId(innerNodeId);
             double ele = elevationInterpolator.calculateElevationBasedOnThreePoints(lat, lon, lat0,
                     lon0, ele0, lat1, lon1, ele1, lat2, lon2, ele2);
-            nodeAccess.setNode(innerNodeId, lat, lon, ele);
+            nodeAccess.setNode(innerNodeId, lat, lon, ele, osmId);
         }
     }
 
@@ -110,13 +113,14 @@ public class NodeElevationInterpolator {
         PointList pointList = new PointList(outerNodeIds.length, true);
         for (int outerNodeId : outerNodeIds) {
             pointList.add(nodeAccess.getLat(outerNodeId), nodeAccess.getLon(outerNodeId),
-                    nodeAccess.getEle(outerNodeId));
+                    nodeAccess.getEle(outerNodeId), nodeAccess.getOsmId(outerNodeId));
         }
         for (int innerNodeId : innerNodeIds) {
             double lat = nodeAccess.getLat(innerNodeId);
             double lon = nodeAccess.getLon(innerNodeId);
+            long osmId = nodeAccess.getOsmId(innerNodeId);
             double ele = elevationInterpolator.calculateElevationBasedOnPointList(lat, lon, pointList);
-            nodeAccess.setNode(innerNodeId, lat, lon, ele);
+            nodeAccess.setNode(innerNodeId, lat, lon, ele, osmId);
         }
     }
 }

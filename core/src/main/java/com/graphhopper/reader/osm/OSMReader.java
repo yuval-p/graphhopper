@@ -36,10 +36,7 @@ import com.graphhopper.routing.util.countryrules.CountryRule;
 import com.graphhopper.routing.util.countryrules.CountryRuleFactory;
 import com.graphhopper.routing.util.parsers.TurnCostParser;
 import com.graphhopper.search.EdgeKVStorage;
-import com.graphhopper.storage.BaseGraph;
-import com.graphhopper.storage.IntsRef;
-import com.graphhopper.storage.NodeAccess;
-import com.graphhopper.storage.TurnCostStorage;
+import com.graphhopper.storage.*;
 import com.graphhopper.util.*;
 import com.graphhopper.util.shapes.GHPoint;
 import com.graphhopper.util.shapes.GHPoint3D;
@@ -91,13 +88,13 @@ public class OSMReader {
     private GHLongHashSet osmWayIdSet = new GHLongHashSet();
     private IntLongMap edgeIdToOsmWayIdMap;
 
+
     public OSMReader(BaseGraph baseGraph, EncodingManager encodingManager, OSMParsers osmParsers, OSMReaderConfig config) {
         this.baseGraph = baseGraph;
         this.encodingManager = encodingManager;
         this.config = config;
         this.nodeAccess = baseGraph.getNodeAccess();
         this.osmParsers = osmParsers;
-
         simplifyAlgo.setMaxDistance(config.getMaxWayPointDistance());
         simplifyAlgo.setElevationMaxDistance(config.getElevationMaxWayPointDistance());
         turnCostStorage = baseGraph.getTurnCostStorage();
@@ -304,9 +301,8 @@ public class OSMReader {
                 EdgeElevationSmoothing.smoothMovingAverage(pointList);
         }
 
-        if (config.getMaxWayPointDistance() > 0 && pointList.size() > 2)
+        if (config.getSimplifyWay() && config.getMaxWayPointDistance() > 0 && pointList.size() > 2)
             simplifyAlgo.simplify(pointList);
-
         double distance = distCalc.calcDistance(pointList);
 
         if (distance < 0.001) {

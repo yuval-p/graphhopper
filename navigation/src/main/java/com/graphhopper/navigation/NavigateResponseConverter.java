@@ -139,10 +139,10 @@ public class NavigateResponseConverter {
         if (index + 2 < instructions.size()) {
             // Add the first point of the next instruction
             PointList nextPoints = instructions.get(index + 1).getPoints();
-            pointList.add(nextPoints.getLat(0), nextPoints.getLon(0), nextPoints.getEle(0));
+            pointList.add(nextPoints.getLat(0), nextPoints.getLon(0), nextPoints.getEle(0), nextPoints.getOsmId(0));
         } else if (pointList.size() == 1) {
             // Duplicate the last point in the arrive instruction, if the size is 1
-            pointList.add(pointList.getLat(0), pointList.getLon(0), pointList.getEle(0));
+            pointList.add(pointList.getLat(0), pointList.getLon(0), pointList.getEle(0), pointList.getOsmId(0));
         }
 
         putLocation(pointList.getLat(0), pointList.getLon(0), intersection);

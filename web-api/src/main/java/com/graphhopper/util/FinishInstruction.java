@@ -21,30 +21,47 @@ package com.graphhopper.util;
  * @author Peter Karich
  */
 public class FinishInstruction extends Instruction {
+    public FinishInstruction(String name, final double lat, final double lon, final double ele, long osmId) {
+        super(FINISH, name, new PointList(2, !Double.isNaN(ele), Long.MIN_VALUE != osmId) {
+            {
+                add(lat, lon, ele, osmId);
+            }
+        });
+    }
+
     public FinishInstruction(String name, final double lat, final double lon, final double ele) {
-        super(FINISH, name, new PointList(2, !Double.isNaN(ele)) {
+        super(FINISH, name, new PointList(2, !Double.isNaN(ele), false) {
             {
                 add(lat, lon, ele);
             }
         });
     }
-
     public FinishInstruction(final double lat, final double lon, final double ele) {
-        super(FINISH, "", new PointList(2, !Double.isNaN(ele)) {
+        super(FINISH, "", new PointList(2, !Double.isNaN(ele), false) {
             {
-                add(lat, lon, ele);
+                add(lat, lon, ele, Long.MIN_VALUE);
+            }
+        });
+    }
+
+    public FinishInstruction(final double lat, final double lon, final double ele, long osmId) {
+        super(FINISH, "", new PointList(2, !Double.isNaN(ele), Long.MIN_VALUE != osmId) {
+            {
+                add(lat, lon, ele, osmId);
             }
         });
     }
 
     public FinishInstruction(String name, PointAccess pointAccess, int node) {
         this(name, pointAccess.getLat(node), pointAccess.getLon(node),
-                pointAccess.is3D() ? pointAccess.getEle(node) : Double.NaN);
+                pointAccess.is3D() ? pointAccess.getEle(node) : Double.NaN, pointAccess.getOsmId(node));
     }
 
     public FinishInstruction(PointAccess pointAccess, int node) {
+
         this(pointAccess.getLat(node), pointAccess.getLon(node),
-                pointAccess.is3D() ? pointAccess.getEle(node) : Double.NaN);
+                pointAccess.is3D() ? pointAccess.getEle(node) : Double.NaN, pointAccess.getOsmId(node));
+        // this.points.setOsmId(0, osmId);
     }
 
     @Override

@@ -367,6 +367,26 @@ public class Helper {
         return (int) x;
     }
 
+    public static byte[] longToBytes(long value, int size) {
+        byte[] result = new byte[size];
+        for (int i = size - 1, min = Math.max(size - 8, 0); i >= min; i--) {
+            result[i] = (byte) (value & 0xFF);
+            // take out 8-bits as the byte is stored
+            value >>= 8;
+        }
+        return result;
+    }
+
+    public static long bytesToLong(final byte[] bs) {
+        long result = 0;
+        for (int i = Math.max(bs.length - 8, 0); i < bs.length; i++) {
+            // make 8-bit space for the next byte
+            result <<= 8;
+            result |= (long) bs[i] & 0xFF;
+        }
+        return result;
+    }
+
     /**
      * This method probes the specified string for a boolean, int, long, float and double. If all this fails it returns
      * the unchanged string.

@@ -339,7 +339,7 @@ public class WaySegmentParser {
         }
 
         void handleSegment(List<SegmentNode> segment, ReaderWay way, Map<String, Object> nodeTags) {
-            final PointList pointList = new PointList(segment.size(), nodeData.is3D());
+            final PointList pointList = new PointList(segment.size(), nodeData.is3D(), nodeData.isStoringOSMID());
             int from = -1;
             int to = -1;
             for (int i = 0; i < segment.size(); i++) {
@@ -358,7 +358,7 @@ public class WaySegmentParser {
                     to = nodeData.idToTowerNode(id);
                 else if (isTowerNode(id))
                     throw new IllegalStateException("Tower nodes should only appear at the end of segments, way: " + way.getId());
-                nodeData.addCoordinatesToPointList(id, pointList);
+                nodeData.addCoordinatesToPointList(id, pointList, node.osmNodeId);
             }
             if (from < 0 || to < 0)
                 throw new IllegalStateException("The first and last nodes of a segment must be tower nodes, way: " + way.getId());
@@ -506,7 +506,7 @@ public class WaySegmentParser {
             return new WaySegmentParser(
                     nodeAccess, directory, elevationProvider, wayFilter, splitNodeFilter, wayPreprocessor, relationPreprocessor, relationProcessor,
                     edgeHandler, workerThreads
-            );
+                    );
         }
     }
 

@@ -18,10 +18,7 @@
 
 package com.graphhopper.storage;
 
-import com.graphhopper.util.Constants;
-import com.graphhopper.util.EdgeIterator;
-import com.graphhopper.util.GHUtility;
-import com.graphhopper.util.Helper;
+import com.graphhopper.util.*;
 import com.graphhopper.util.shapes.BBox;
 
 import java.util.Locale;
@@ -37,12 +34,14 @@ class BaseGraphNodesAndEdges {
     // Currently distances are stored as 4 byte integers. using a conversion factor of 1000 the minimum distance
     // that is not considered zero is 0.0005m (=0.5mm) and the maximum distance per edge is about 2.147.483m=2147km.
     // See OSMReader.addEdge and #1871.
+    private static final BitUtil bitUtil = BitUtil.LITTLE;
     private static final double INT_DIST_FACTOR = 1000d;
     static double MAX_DIST = Integer.MAX_VALUE / INT_DIST_FACTOR;
+    private static int OSM_ID_BYTE_SIZE;
 
     // nodes
     private final DataAccess nodes;
-    private final int N_EDGE_REF, N_LAT, N_LON, N_ELE, N_TC;
+    private final int N_EDGE_REF, N_LAT, N_LON, N_ELE, N_OSM, N_TC;
     private int nodeEntryBytes;
     private int nodeCount;
 
@@ -56,25 +55,30 @@ class BaseGraphNodesAndEdges {
     private final boolean withTurnCosts;
     private final boolean withElevation;
 
+    private final boolean withOSMId;
+
     // we do not write the bounding box directly to storage, but rather to this bbox object. we only write to storage
     // when flushing. why? just because we did it like this in the past, and otherwise we run into rounding errors,
     // because of: #2393
     public final BBox bounds;
     private boolean frozen;
 
-    public BaseGraphNodesAndEdges(Directory dir, int intsForFlags, boolean withElevation, boolean withTurnCosts, int segmentSize) {
+    public BaseGraphNodesAndEdges(Directory dir, int intsForFlags, boolean withElevation, boolean withOSMId, boolean withTurnCosts, int segmentSize) {
         nodes = dir.create("nodes", dir.getDefaultType("nodes", true), segmentSize);
         edges = dir.create("edges", dir.getDefaultType("edges", true), segmentSize);
         this.intsForFlags = intsForFlags;
         this.withTurnCosts = withTurnCosts;
         this.withElevation = withElevation;
+        this.withOSMId = withOSMId;
         bounds = BBox.createInverse(withElevation);
 
+        OSM_ID_BYTE_SIZE = nodes.getType().isInteg()? 8 : 5;
         // memory layout for nodes
         N_EDGE_REF = 0;
         N_LAT = 4;
         N_LON = 8;
-        N_ELE = N_LON + (withElevation ? 4 : 0);
+        N_OSM = N_LON + (withOSMId ? 4 : 0);
+        N_ELE = N_OSM + (withOSMId ? OSM_ID_BYTE_SIZE: 0) + (withElevation ? 4 : 0);
         N_TC = N_ELE + (withTurnCosts ? 4 : 0);
         nodeEntryBytes = N_TC + 4;
 
@@ -168,6 +172,10 @@ class BaseGraphNodesAndEdges {
 
     public boolean withElevation() {
         return withElevation;
+    }
+
+    public boolean withOSMId() {
+        return withOSMId;
     }
 
     public boolean withTurnCosts() {
@@ -326,6 +334,16 @@ class BaseGraphNodesAndEdges {
         nodes.setInt(elePointer + N_ELE, Helper.eleToInt(ele));
     }
 
+    public void setOsmId(long nodePointer, long osmId) {
+
+        if(nodes.getType().isInteg()){
+        nodes.setInt(nodePointer + N_OSM, bitUtil.getIntLow(osmId));
+        nodes.setInt(nodePointer + N_OSM + 4, bitUtil.getIntHigh(osmId));
+        }else{
+        nodes.setBytes(nodePointer + N_OSM, Helper.longToBytes(osmId, OSM_ID_BYTE_SIZE), OSM_ID_BYTE_SIZE);
+        }
+    }
+
     public void setTurnCostRef(long nodePointer, int tcRef) {
         nodes.setInt(nodePointer + N_TC, tcRef);
     }
@@ -344,6 +362,17 @@ class BaseGraphNodesAndEdges {
 
     public double getEle(long nodePointer) {
         return Helper.intToEle(nodes.getInt(nodePointer + N_ELE));
+    }
+
+    public long getOsmId(long nodePointer) {
+        if(nodes.getType().isInteg()){
+            int lowOsmId = nodes.getInt(nodePointer + N_OSM);
+            int highOsmId = nodes.getInt(nodePointer + N_OSM + 4);
+            return bitUtil.combineIntsToLong(lowOsmId, highOsmId);
+        }
+        byte[] value = new byte[OSM_ID_BYTE_SIZE];
+        nodes.getBytes(nodePointer + N_OSM, value, OSM_ID_BYTE_SIZE);
+        return Helper.bytesToLong(value);
     }
 
     public int getTurnCostRef(long nodePointer) {

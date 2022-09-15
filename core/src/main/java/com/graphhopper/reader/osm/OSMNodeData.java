@@ -26,6 +26,7 @@ import com.graphhopper.storage.Directory;
 import com.graphhopper.util.PointAccess;
 import com.graphhopper.util.PointList;
 import com.graphhopper.util.shapes.GHPoint3D;
+import com.graphhopper.util.shapes.OSMGHPoint3D;
 
 import java.util.ArrayList;
 import java.util.Collections;
@@ -86,7 +87,7 @@ class OSMNodeData {
         // entries.
         idsByOsmNodeIds = new GHLongIntBTree(200);
         towerNodes = nodeAccess;
-        pillarNodes = new PillarInfo(towerNodes.is3D(), directory);
+        pillarNodes = new PillarInfo(towerNodes.is3D(), towerNodes.isStoringOSMIds(), directory);
 
         nodeTagIndicesByOsmNodeIds = new GHLongIntBTree(200);
         nodeTags = new ArrayList<>();
@@ -94,6 +95,10 @@ class OSMNodeData {
 
     public boolean is3D() {
         return towerNodes.is3D();
+    }
+
+    public boolean isStoringOSMID() {
+        return towerNodes.isStoringOSMIds();
     }
 
     /**
@@ -160,7 +165,7 @@ class OSMNodeData {
     }
 
     private int addTowerNode(long osmId, double lat, double lon, double ele) {
-        towerNodes.setNode(nextTowerId, lat, lon, ele);
+        towerNodes.setNode(nextTowerId, lat, lon, ele, osmId);
         int id = towerNodeToId(nextTowerId);
         idsByOsmNodeIds.put(osmId, id);
         nextTowerId++;
@@ -168,7 +173,7 @@ class OSMNodeData {
     }
 
     private int addPillarNode(long osmId, double lat, double lon, double ele) {
-        pillarNodes.setNode(nextPillarId, lat, lon, ele);
+        pillarNodes.setNode(nextPillarId, lat, lon, ele, osmId);
         int id = pillarNodeToId(nextPillarId);
         idsByOsmNodeIds.put(osmId, id);
         nextPillarId++;
@@ -201,26 +206,32 @@ class OSMNodeData {
         if (lat == Double.MAX_VALUE || lon == Double.MAX_VALUE)
             throw new IllegalStateException("Pillar node was already converted to tower node: " + id);
 
-        pillarNodes.setNode(pillar, Double.MAX_VALUE, Double.MAX_VALUE, Double.MAX_VALUE);
+        pillarNodes.setNode(pillar, Double.MAX_VALUE, Double.MAX_VALUE, Double.MAX_VALUE, Long.MIN_VALUE);
         return addTowerNode(osmNodeId, lat, lon, ele);
     }
 
-    public GHPoint3D getCoordinates(int id) {
+    public OSMGHPoint3D getCoordinates(int id) {
         if (isTowerNode(id)) {
             int tower = idToTowerNode(id);
-            return towerNodes.is3D()
-                    ? new GHPoint3D(towerNodes.getLat(tower), towerNodes.getLon(tower), towerNodes.getEle(tower))
-                    : new GHPoint3D(towerNodes.getLat(tower), towerNodes.getLon(tower), Double.NaN);
+            double lat = towerNodes.getLat(tower);
+            double lon = towerNodes.getLon(tower);
+            double ele = towerNodes.is3D()? towerNodes.getEle(tower): Double.NaN;
+            long osmId = towerNodes.isStoringOSMIds()? towerNodes.getOsmId(tower): Long.MIN_VALUE;
+
+            return new OSMGHPoint3D(lat, lon, ele, osmId);
         } else if (isPillarNode(id)) {
             int pillar = idToPillarNode(id);
-            return pillarNodes.is3D()
-                    ? new GHPoint3D(pillarNodes.getLat(pillar), pillarNodes.getLon(pillar), pillarNodes.getEle(pillar))
-                    : new GHPoint3D(pillarNodes.getLat(pillar), pillarNodes.getLon(pillar), Double.NaN);
+            double lat = pillarNodes.getLat(pillar);
+            double lon = pillarNodes.getLon(pillar);
+            double ele = pillarNodes.is3D()? pillarNodes.getEle(pillar): Double.NaN;
+            long osmId = pillarNodes.isStoringOSMIds()? pillarNodes.getOsmId(pillar): Long.MIN_VALUE;
+
+            return new OSMGHPoint3D(lat, lon, ele, osmId);
         } else
             return null;
     }
 
-    public void addCoordinatesToPointList(int id, PointList pointList) {
+    public void addCoordinatesToPointList(int id, PointList pointList, long osmId) {
         double lat, lon;
         double ele = Double.NaN;
         if (isTowerNode(id)) {
@@ -237,7 +248,7 @@ class OSMNodeData {
                 ele = pillarNodes.getEle(pillar);
         } else
             throw new IllegalArgumentException();
-        pointList.add(lat, lon, ele);
+        pointList.add(lat, lon, ele, osmId);
     }
 
     public void setTags(ReaderNode node) {

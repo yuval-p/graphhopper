@@ -89,12 +89,14 @@ public class GraphHopper {
     private StorableProperties properties;
     private EncodingManager encodingManager;
     private OSMParsers osmParsers;
+
     private int defaultSegmentSize = -1;
     private String ghLocation = "";
     private DAType dataAccessDefaultType = DAType.RAM_STORE;
     private final LinkedHashMap<String, String> dataAccessConfig = new LinkedHashMap<>();
     private boolean sortGraph = false;
     private boolean elevation = false;
+    private boolean storeOSMIds = false;
     private LockFactory lockFactory = new NativeFSLockFactory();
     private boolean allowWrites = true;
     private boolean fullyLoaded = false;
@@ -154,6 +156,7 @@ public class GraphHopper {
             throw new IllegalStateException("OSMParsers not yet built");
         return osmParsers;
     }
+
 
     public ElevationProvider getElevationProvider() {
         return eleProvider;
@@ -298,11 +301,22 @@ public class GraphHopper {
         return elevation;
     }
 
+    public boolean isStoresOSMIds() {
+        return storeOSMIds;
+    }
+
     /**
      * Enable storing and fetching elevation data. Default is false
      */
     public GraphHopper setElevation(boolean includeElevation) {
         this.elevation = includeElevation;
+        return this;
+    }
+    /**
+     * Enable storing and fetching osm ids data. Default is false
+     */
+    public GraphHopper setStoreOSMIds(boolean storeOSMIds) {
+        this.storeOSMIds = storeOSMIds;
         return this;
     }
 
@@ -551,6 +565,14 @@ public class GraphHopper {
         ElevationProvider elevationProvider = createElevationProvider(ghConfig);
         setElevationProvider(elevationProvider);
 
+
+        // store osmIds
+        osmReaderConfig.setStoreOSMIds(ghConfig.getBool("graph.store_osm_ids", osmReaderConfig.getIsStoresOSMIds()));
+        setStoreOSMIds(osmReaderConfig.getIsStoresOSMIds());
+
+        // simplify ways
+        osmReaderConfig.setSimplifyWay(ghConfig.getBool("graph.simplify_way", osmReaderConfig.getSimplifyWay()));
+
         if (osmReaderConfig.getLongEdgeSamplingDistance() < Double.MAX_VALUE && !elevationProvider.canInterpolate())
             logger.warn("Long edge sampling enabled, but bilinear interpolation disabled. See #1953");
 
@@ -730,7 +752,8 @@ public class GraphHopper {
     private String getBaseGraphString() {
         return encodingManager
                 + "|" + baseGraph.getDirectory().getDefaultType()
-                + "|" + baseGraph.getNodeAccess().getDimension() + "D"
+                + "|" + (baseGraph.getNodeAccess().is3D()?  "3D" : "2D")
+                +  (baseGraph.getNodeAccess().isStoringOSMIds()? "|STORE_OSM_NODES": "")
                 + "|" + (baseGraph.getTurnCostStorage() != null ? baseGraph.getTurnCostStorage() : "no_turn_cost")
                 + "|" + getVersionsString();
     }
@@ -785,6 +808,7 @@ public class GraphHopper {
         baseGraph = new BaseGraph.Builder(getEncodingManager())
                 .setDir(directory)
                 .set3D(hasElevation())
+                .setStoreOSMId(isStoresOSMIds())
                 .withTurnCosts(encodingManager.needsTurnCostsSupport())
                 .setSegmentSize(defaultSegmentSize)
                 .build();
@@ -872,6 +896,7 @@ public class GraphHopper {
         properties.put("datareader.import.date", f.format(new Date()));
         if (reader.getDataDate() != null)
             properties.put("datareader.data.date", f.format(reader.getDataDate()));
+
 
         writeEncodingManagerToProperties();
     }
@@ -967,6 +992,7 @@ public class GraphHopper {
             baseGraph = new BaseGraph.Builder(encodingManager)
                     .setDir(directory)
                     .set3D(hasElevation())
+                    .setStoreOSMId(isStoresOSMIds())
                     .withTurnCosts(encodingManager.needsTurnCostsSupport())
                     .setSegmentSize(defaultSegmentSize)
                     .build();

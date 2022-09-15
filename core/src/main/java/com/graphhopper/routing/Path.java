@@ -270,7 +270,7 @@ public class Path {
      * @return the geometry of this path
      */
     public PointList calcPoints() {
-        final PointList points = new PointList(edgeIds.size() + 1, nodeAccess.is3D());
+        final PointList points = new PointList(edgeIds.size() + 1, nodeAccess.is3D(), nodeAccess.isStoringOSMIds());
         if (edgeIds.isEmpty()) {
             if (isFound()) {
                 points.add(nodeAccess, endNode);

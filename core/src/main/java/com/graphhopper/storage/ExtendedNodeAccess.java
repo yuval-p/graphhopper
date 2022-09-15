@@ -51,6 +51,11 @@ public class ExtendedNodeAccess implements NodeAccess {
     }
 
     @Override
+    public boolean isStoringOSMIds() {
+        return nodeAccess.isStoringOSMIds();
+    }
+
+    @Override
     public int getDimension() {
         return nodeAccess.getDimension();
     }
@@ -77,6 +82,13 @@ public class ExtendedNodeAccess implements NodeAccess {
     }
 
     @Override
+    public long getOsmId(int nodeId) {
+        if (isAdditionalNode(nodeId))
+            return additionalNodes.getOsmId(nodeId - firstAdditionalNodeId);
+        return nodeAccess.getOsmId(nodeId);
+    }
+
+    @Override
     public int getTurnCostIndex(int nodeId) {
         if (isAdditionalNode(nodeId))
             return 0;
@@ -84,7 +96,7 @@ public class ExtendedNodeAccess implements NodeAccess {
     }
 
     @Override
-    public void setNode(int nodeId, double lat, double lon, double ele) {
+    public void setNode(int nodeId, double lat, double lon, double ele, long osmId) {
         throw new UnsupportedOperationException("Not supported yet.");
     }
 

@@ -75,6 +75,13 @@ public final class ShallowImmutablePointList extends PointList {
     }
 
     @Override
+    public long getOsmId(int index) {
+        if (index > size())
+            throw new ArrayIndexOutOfBoundsException(ERR_MSG + " index:" + index + ", size:" + size());
+        return wrappedPointList.getOsmId(fromOffset + index);
+    }
+
+    @Override
     public double getEle(int index) {
         if (index > size())
             throw new ArrayIndexOutOfBoundsException(ERR_MSG + " index:" + index + ", size:" + size());
@@ -121,17 +128,17 @@ public final class ShallowImmutablePointList extends PointList {
     }
 
     @Override
-    public void setNode(int nodeId, double lat, double lon, double ele) {
+    public void setNode(int nodeId, double lat, double lon, double ele, long osmId) {
         throw new UnsupportedOperationException(IMMUTABLE_ERR);
     }
 
     @Override
-    public void set(int index, double lat, double lon, double ele) {
+    public void set(int index, double lat, double lon, double ele, long osmId) {
         throw new UnsupportedOperationException(IMMUTABLE_ERR);
     }
 
     @Override
-    public void add(double lat, double lon, double ele) {
+    public void add(double lat, double lon, double ele, long osmId) {
         throw new UnsupportedOperationException(IMMUTABLE_ERR);
     }
 

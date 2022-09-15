@@ -24,6 +24,8 @@ public class OSMReaderConfig {
     private double maxWayPointDistance = 1;
     private double elevationMaxWayPointDistance = Double.MAX_VALUE;
     private String smoothElevation = "";
+    private boolean storeOSMIds = true;
+    private boolean simplifyWay = true;
     private int ramerElevationSmoothingMax = 5;
     private double longEdgeSamplingDistance = Double.MAX_VALUE;
     private int workerThreads = 2;
@@ -121,6 +123,27 @@ public class OSMReaderConfig {
      */
     public OSMReaderConfig setWorkerThreads(int workerThreads) {
         this.workerThreads = workerThreads;
+        return this;
+    }
+
+    public boolean getIsStoresOSMIds() {
+        return storeOSMIds;
+    }
+
+    public boolean getSimplifyWay() {
+        return simplifyWay;
+    }
+
+    /**
+     * Sets the number of threads used for the OSM import
+     */
+    public OSMReaderConfig setStoreOSMIds(boolean storeOSMIds) {
+        this.storeOSMIds = storeOSMIds;
+        return this;
+    }
+
+    public OSMReaderConfig setSimplifyWay(boolean simplifyWay) {
+        this.simplifyWay = simplifyWay;
         return this;
     }
 }

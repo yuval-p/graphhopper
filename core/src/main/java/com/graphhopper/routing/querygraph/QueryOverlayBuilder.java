@@ -26,7 +26,7 @@ import com.graphhopper.storage.IntsRef;
 import com.graphhopper.storage.index.Snap;
 import com.graphhopper.util.*;
 import com.graphhopper.util.shapes.GHPoint;
-import com.graphhopper.util.shapes.GHPoint3D;
+import com.graphhopper.util.shapes.OSMGHPoint3D;
 
 import java.util.*;
 
@@ -34,24 +34,26 @@ class QueryOverlayBuilder {
     private final int firstVirtualNodeId;
     private final int firstVirtualEdgeId;
     private final boolean is3D;
+    private final boolean storeOSMId;
     private QueryOverlay queryOverlay;
 
     public static QueryOverlay build(Graph graph, List<Snap> snaps) {
-        return build(graph.getNodes(), graph.getEdges(), graph.getNodeAccess().is3D(), snaps);
+        return build(graph.getNodes(), graph.getEdges(), graph.getNodeAccess().is3D(), graph.getNodeAccess().isStoringOSMIds(), snaps);
     }
 
-    public static QueryOverlay build(int firstVirtualNodeId, int firstVirtualEdgeId, boolean is3D, List<Snap> snaps) {
-        return new QueryOverlayBuilder(firstVirtualNodeId, firstVirtualEdgeId, is3D).build(snaps);
+    public static QueryOverlay build(int firstVirtualNodeId, int firstVirtualEdgeId, boolean is3D, boolean storeOSMId,  List<Snap> snaps) {
+        return new QueryOverlayBuilder(firstVirtualNodeId, firstVirtualEdgeId, is3D, storeOSMId).build(snaps);
     }
 
-    private QueryOverlayBuilder(int firstVirtualNodeId, int firstVirtualEdgeId, boolean is3D) {
+    private QueryOverlayBuilder(int firstVirtualNodeId, int firstVirtualEdgeId, boolean is3D, boolean storeOSMId) {
         this.firstVirtualNodeId = firstVirtualNodeId;
         this.firstVirtualEdgeId = firstVirtualEdgeId;
         this.is3D = is3D;
+        this.storeOSMId = storeOSMId;
     }
 
     private QueryOverlay build(List<Snap> resList) {
-        queryOverlay = new QueryOverlay(resList.size(), is3D);
+        queryOverlay = new QueryOverlay(resList.size(), is3D, storeOSMId);
         buildVirtualEdges(resList);
         buildEdgeChangesAtRealNodes();
         return queryOverlay;
@@ -142,7 +144,7 @@ class QueryOverlayBuilder {
                     }
                 });
 
-                GHPoint3D prevPoint = fullPL.get(0);
+                OSMGHPoint3D prevPoint = fullPL.get(0);
                 int adjNode = closestEdge.getAdjNode();
                 int origEdgeKey = closestEdge.getEdgeKey();
                 int origRevEdgeKey = closestEdge.getReverseEdgeKey();
@@ -158,7 +160,7 @@ class QueryOverlayBuilder {
                     if (res.getClosestEdge().getBaseNode() != baseNode)
                         throw new IllegalStateException("Base nodes have to be identical but were not: " + closestEdge + " vs " + res.getClosestEdge());
 
-                    GHPoint3D currSnapped = res.getSnappedPoint();
+                    OSMGHPoint3D currSnapped = (OSMGHPoint3D) res.getSnappedPoint();
 
                     // no new virtual nodes if exactly the same snapped point
                     if (prevPoint.equals(currSnapped)) {
@@ -170,10 +172,10 @@ class QueryOverlayBuilder {
                     boolean isPillar = res.getSnappedPosition() == Snap.Position.PILLAR;
                     createEdges(origEdgeKey, origRevEdgeKey,
                             prevPoint, prevWayIndex, isPillar,
-                            res.getSnappedPoint(), res.getWayIndex(),
+                            (OSMGHPoint3D) res.getSnappedPoint(), res.getWayIndex(),
                             fullPL, closestEdge, prevNodeId, virtNodeId);
 
-                    queryOverlay.getVirtualNodes().add(currSnapped.lat, currSnapped.lon, currSnapped.ele);
+                    queryOverlay.getVirtualNodes().add(currSnapped.lat, currSnapped.lon, currSnapped.ele, currSnapped.osmId);
 
                     // add edges again to set adjacent edges for newVirtNodeId
                     if (addedEdges) {
@@ -202,17 +204,17 @@ class QueryOverlayBuilder {
     }
 
     private void createEdges(int origEdgeKey, int origRevEdgeKey,
-                             GHPoint3D prevSnapped, int prevWayIndex, boolean isPillar, GHPoint3D currSnapped, int wayIndex,
+                             OSMGHPoint3D prevSnapped, int prevWayIndex, boolean isPillar, OSMGHPoint3D currSnapped, int wayIndex,
                              PointList fullPL, EdgeIteratorState closestEdge,
                              int prevNodeId, int nodeId) {
         int max = wayIndex + 1;
-        PointList basePoints = new PointList(max - prevWayIndex + 1, is3D);
-        basePoints.add(prevSnapped.lat, prevSnapped.lon, prevSnapped.ele);
+        PointList basePoints = new PointList(max - prevWayIndex + 1, is3D, storeOSMId);
+        basePoints.add(prevSnapped.lat, prevSnapped.lon, prevSnapped.ele, prevSnapped.osmId);
         for (int i = prevWayIndex; i < max; i++) {
             basePoints.add(fullPL, i);
         }
         if (!isPillar) {
-            basePoints.add(currSnapped.lat, currSnapped.lon, currSnapped.ele);
+            basePoints.add(currSnapped.lat, currSnapped.lon, currSnapped.ele, currSnapped.osmId);
         }
         // basePoints must have at least the size of 2 to make sure fetchWayGeometry(FetchMode.ALL) returns at least 2
         assert basePoints.size() >= 2 : "basePoints must have at least two points";

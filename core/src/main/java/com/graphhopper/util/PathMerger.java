@@ -127,7 +127,7 @@ public class PathMerger {
             if (calcPoints || enableInstructions) {
                 PointList tmpPoints = path.calcPoints();
                 if (fullPoints.isEmpty())
-                    fullPoints = new PointList(tmpPoints.size(), tmpPoints.is3D());
+                    fullPoints = new PointList(tmpPoints.size(), tmpPoints.is3D(), tmpPoints.isStoringOSMIds());
 
                 // Remove duplicated points, see #1138
                 if (pathIndex + 1 < paths.size()) {
