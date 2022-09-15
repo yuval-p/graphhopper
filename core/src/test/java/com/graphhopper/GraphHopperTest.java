@@ -2674,5 +2674,44 @@ public class GraphHopperTest {
         }
     }
 
+    @ParameterizedTest
+    @CsvSource({
+            DIJKSTRA + ",false,511",
+            ASTAR + ",false,256",
+            DIJKSTRA_BI + ",false,228",
+            ASTAR_BI + ",false,142",
+            ASTAR_BI + ",true,41",
+            DIJKSTRA_BI + ",true,48"
+    })
+    public void testRequestNonSimplifiedRoute(String algo, boolean withCH, int expectedVisitedNodes) {
+        final String vehicle = "car";
+        final String weighting = "fastest";
+        GraphHopper hopper = new GraphHopper().
+                setGraphHopperLocation(GH_LOCATION).
+                setOSMFile(MONACO).
+                setProfiles(new Profile("profile").setVehicle(vehicle).setWeighting(weighting)).
+                setStoreOnFlush(true);
+        hopper.getCHPreparationHandler()
+                .setCHProfiles(new CHProfile("profile"));
+        hopper.setMinNetworkSize(0);
+        hopper.importOrLoad();
+        GHRequest req = new GHRequest(43.727687, 7.418737, 43.74958, 7.436566)
+                .setAlgorithm(algo)
+                .setProfile("profile")
+                .putHint("simplify_response", false);
+        req.putHint(CH.DISABLE, !withCH);
+        GHResponse rsp = hopper.route(req);
+        assertFalse(rsp.hasErrors(), rsp.getErrors().toString());
+        assertEquals(expectedVisitedNodes, rsp.getHints().getLong("visited_nodes.sum", 0));
+
+        ResponsePath res = rsp.getBest();
+        assertEquals(3586.9, res.getDistance(), .1);
+        assertEquals(277115, res.getTime(), 10);
+        assertEquals(101, res.getPoints().size());
+
+        assertEquals(43.7276852, res.getWaypoints().getLat(0), 1e-7);
+        assertEquals(43.7495432, res.getWaypoints().getLat(1), 1e-7);
+    }
+
 }
 
